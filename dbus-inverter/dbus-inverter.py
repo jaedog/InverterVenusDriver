@@ -182,7 +182,7 @@ def ac_grid_control(enabled) :
   ac_grid_ctrl = ShellyPy.Shelly(host_grid_ctl, timeout=1)
   ac_grid_ctrl.relay(0, turn=enabled)
 
-soc = 0.0
+soc = 50.0 # set to sane value so we don't trigger relay on init
 
 #----------
 def ac_grid_handler():
@@ -193,109 +193,105 @@ def ac_grid_handler():
   storm_warning = False
 
   while 1:
+    ac_in_l1_power = 0
+    ac_in_l2_power = 0
+    ac_in_l1_voltage = 0
+    ac_in_l2_voltage = 0
+    ac_in_l1_current = 0
+    ac_in_l2_current = 0
+    ac_in_freq = 0
+
+    #global ac_grid
     try:
-      ac_in_l1_power = 0
-      ac_in_l2_power = 0
-      ac_in_l1_voltage = 0
-      ac_in_l2_voltage = 0
-      ac_in_l1_current = 0
-      ac_in_l2_current = 0
-      ac_in_freq = 0
+      if (ac_grid == None) :
+        ac_grid = ShellyPy.Shelly(host_grid, timeout=1)
 
-      #global ac_grid
-      try:
-        if (ac_grid == None) :
-          ac_grid = ShellyPy.Shelly(host_grid, timeout=1)
+      ac_in_emeter_l1 = ac_grid.emeter(0)
+      ac_in_emeter_l2 = ac_grid.emeter(1)
 
-        ac_in_emeter_l1 = ac_grid.emeter(0)
-        ac_in_emeter_l2 = ac_grid.emeter(1)
+      #print(ac_in_emeter_l1)
+      ac_in_l1_power = ac_in_emeter_l1['power']
+      ac_in_l2_power = ac_in_emeter_l2['power']
+      ac_in_l1_voltage = ac_in_emeter_l1['voltage']
+      ac_in_l2_voltage = ac_in_emeter_l2['voltage']
 
-        #print(ac_in_emeter_l1)
-        ac_in_l1_power = ac_in_emeter_l1['power']
-        ac_in_l2_power = ac_in_emeter_l2['power']
-        ac_in_l1_voltage = ac_in_emeter_l1['voltage']
-        ac_in_l2_voltage = ac_in_emeter_l2['voltage']
+      if (ac_in_l1_voltage > 0) :
+        ac_in_l1_current = int(ac_in_l1_power / ac_in_l1_voltage)
 
-        if (ac_in_l1_voltage > 0) :
-          ac_in_l1_current = int(ac_in_l1_power / ac_in_l1_voltage)
+      if (ac_in_l2_voltage > 0) :
+        ac_in_l2_current = int(ac_in_l2_power / ac_in_l2_voltage)
 
-        if (ac_in_l2_voltage > 0) :
-          ac_in_l2_current = int(ac_in_l2_power / ac_in_l2_voltage)
+      ac_in_freq = 60
 
-        ac_in_freq = 60
-
-      except requests.exceptions.ConnectionError as e:
-        pass
-        time.sleep(3)
-        #print(e)
-
-      ac_in_total_power = ac_in_l1_power + ac_in_l2_power
-      dbusservice["/Ac/ActiveIn/L1/P"] = ac_in_l1_power
-      dbusservice["/Ac/ActiveIn/L2/P"] = ac_in_l2_power
-      dbusservice["/Ac/ActiveIn/P"] = ac_in_total_power
-      dbusservice["/Ac/ActiveIn/L1/V"] = ac_in_l1_voltage
-      dbusservice["/Ac/ActiveIn/L2/V"] = ac_in_l2_voltage
-      dbusservice["/Ac/ActiveIn/L1/F"] = ac_in_freq
-      dbusservice["/Ac/ActiveIn/L2/F"] = ac_in_freq
-      dbusservice["/Ac/ActiveIn/L1/I"] = ac_in_l1_current
-      dbusservice["/Ac/ActiveIn/L2/I"] = ac_in_l2_current
-
-      if (ac_in_l1_voltage > 100) :
-        # if grid is connected
-        dbusservice["/Ac/ActiveIn/Connected"] = 1
-        dbusservice["/Ac/ActiveIn/ActiveInput"] = 0
-        dbusservice["/Alarms/GridLost"]  = 0
-      else :
-        # if grid is disconnected... 
-        dbusservice["/Ac/ActiveIn/Connected"] = 0
-        dbusservice["/Ac/ActiveIn/ActiveInput"] = 240          
-
-      grid_relay_on = None
-      try:
-        if (ac_grid_ctrl == None) :
-          ac_grid_ctrl = ShellyPy.Shelly(host_grid_ctl, timeout=1)
-        grid_relay_on = ac_grid_ctrl.relay(0)['ison']
-      except requests.exceptions.ConnectionError as e:
-        pass
-
-      # if there is a grid available
-      if (grid_relay_on != None):
-        # if the grid relay is on
-        if (grid_relay_on) :
-          # zero export to grid
-          if (ac_in_total_power < 0 or (ac_in_total_power > 10 and ac_in_total_power < 100)) :
-            zero_export_countdown -= 1
-            logger.debug("!!!!!!!! Countdown: {0}".format(zero_export_countdown))
-          else :
-            zero_export_countdown = 5
-
-          if (zero_export_countdown <= 0) :
-            # drop ac relay
-            ac_grid_control(False)
-            
-            logger.debug("!!!!!!!!!!!!!!!!!! GRID OFF!!!!!!!!!!!!!!")
-
-
-
-          logger.info("Grid AC: {0}V, L1 Power: {1}W, L2 Power: {2}W, Total Power: {3}W"\
-            .format(ac_in_l1_voltage, ac_in_l1_power, ac_in_l2_power, ac_in_total_power))
-
-        else : # grid relay is off
-
-          # if SOC is low, turn on grid
-          if (soc <= 5.0 or storm_warning) :
-            ac_grid_control(True)
-            logger.debug("!!!!!!!!!!!!!!!! GRID ON!!!!!!!!!!!!!")
-
-          logger.info("Grid AC: Available, Relay OFF")
-      else :
-        logger.info("Grid AC: OFFLINE")
-
+    except requests.exceptions.ConnectionError as e:
       pass
-    except Exception as e:
-      logger.debug(e)      
-    time.sleep(1)
+      time.sleep(3)
+      #print(e)
 
+    ac_in_total_power = ac_in_l1_power + ac_in_l2_power
+    dbusservice["/Ac/ActiveIn/L1/P"] = ac_in_l1_power
+    dbusservice["/Ac/ActiveIn/L2/P"] = ac_in_l2_power
+    dbusservice["/Ac/ActiveIn/P"] = ac_in_total_power
+    dbusservice["/Ac/ActiveIn/L1/V"] = ac_in_l1_voltage
+    dbusservice["/Ac/ActiveIn/L2/V"] = ac_in_l2_voltage
+    dbusservice["/Ac/ActiveIn/L1/F"] = ac_in_freq
+    dbusservice["/Ac/ActiveIn/L2/F"] = ac_in_freq
+    dbusservice["/Ac/ActiveIn/L1/I"] = ac_in_l1_current
+    dbusservice["/Ac/ActiveIn/L2/I"] = ac_in_l2_current
+
+    if (ac_in_l1_voltage > 100) :
+      # if grid is connected
+      dbusservice["/Ac/ActiveIn/Connected"] = 1
+      dbusservice["/Ac/ActiveIn/ActiveInput"] = 0
+      dbusservice["/Alarms/GridLost"]  = 0
+    else :
+      # if grid is disconnected... 
+      dbusservice["/Ac/ActiveIn/Connected"] = 0
+      dbusservice["/Ac/ActiveIn/ActiveInput"] = 240          
+
+    grid_relay_on = None
+    try:
+      if (ac_grid_ctrl == None) :
+        ac_grid_ctrl = ShellyPy.Shelly(host_grid_ctl, timeout=1)
+      grid_relay_on = ac_grid_ctrl.relay(0)['ison']
+    except requests.exceptions.ConnectionError as e:
+      pass
+
+    # if there is a grid available
+    if (grid_relay_on != None):
+      # if the grid relay is on
+      if (grid_relay_on) :
+        # zero export to grid
+        if (ac_in_total_power < 0 or (ac_in_total_power > 10 and ac_in_total_power < 100)) :
+          zero_export_countdown -= 1
+          logger.debug("!!!!!!!! Countdown: {0}".format(zero_export_countdown))
+        else :
+          zero_export_countdown = 5
+
+        if (zero_export_countdown <= 0) :
+          # drop ac relay
+          ac_grid_control(False)
+          
+          logger.debug("!!!!!!!!!!!!!!!!!! GRID OFF!!!!!!!!!!!!!!")
+
+
+
+        logger.info("Grid AC: {0}V, L1 Power: {1}W, L2 Power: {2}W, Total Power: {3}W"\
+          .format(ac_in_l1_voltage, ac_in_l1_power, ac_in_l2_power, ac_in_total_power))
+
+      else : # grid relay is off
+
+        # if SOC is low, turn on grid
+        if (soc <= 5.0 or storm_warning) :
+          ac_grid_control(True)
+          logger.debug("!!!!!!!!!!!!!!!! GRID ON!!!!!!!!!!!!!")
+
+        logger.info("Grid AC: Available, Relay OFF")
+    else :
+      logger.info("Grid AC: OFFLINE")
+
+    pass
+    time.sleep(1)
 
 #----------
 def ac_loads_batt_handler():
@@ -331,7 +327,15 @@ def ac_loads_batt_handler():
       global soc
 
       #get some data from the Victron BUS, invalid data returns NoneType
-      soc = dbusmonitor.get_value('com.victronenergy.system', '/Dc/Battery/Soc')
+      raw_soc = dbusmonitor.get_value('com.victronenergy.system', '/Dc/Battery/Soc')
+      if (raw_soc == None) :
+        logger.debug("SOC is invalid")
+        global keep_running
+        keep_running = False
+        sys.exit()
+      else :
+        soc = raw_soc
+
       time_to_go = dbusmonitor.get_value('com.victronenergy.system', '/Dc/Battery/TimeToGo')
       batt_volt = dbusmonitor.get_value('com.victronenergy.system', '/Dc/Battery/Voltage')
       batt_current = round(dbusmonitor.get_value('com.victronenergy.system', '/Dc/Battery/Current'), 1)
@@ -350,7 +354,6 @@ def ac_loads_batt_handler():
         pv_ac_l2_pwr = 0        
 
       total_pv_power = pv_ac_l1_pwr + pv_ac_l2_pwr
-
 
       try:
         L1_delta_power = L1_power - pv_ac_l1_pwr
