@@ -1,0 +1,11 @@
+ShellyLoads:
+    address: 1.2.3.4
+    #password: PASSWORD
+
+ShellyGrid:
+    address: 1.2.3.4
+    #password: PASSWORD
+
+ShellyGridCtl:
+    address: 1.2.3.4
+    #password: PASSWORD
