@@ -9,7 +9,7 @@
 ROOT_DIR=""
 
 # download this script:
-# wget https://github.com/jaedog/InverterVenusDriver/raw/master/install/install.sh
+# wget https://raw.githubusercontent.com/jaedog/InverterVenusDriver/main/install/install.sh
 
 echo
 echo "This generic inverter venus driver uses Shelly EM power meter hardware to monitor AC power parameters"
@@ -44,30 +44,29 @@ then
   fi
 
 	echo "==== Download driver and library ===="
-
-	wget https://github.com/jaedog/InverterVenusDriver/archive/master.zip
-	unzip -qo master.zip
-	rm master.zip
+  wget https://github.com/jaedog/InverterVenusDriver/archive/refs/heads/main.zip
+	unzip -qo main.zip
+	rm main.zip
   
 	echo "==== Install Inverter driver ===="
 	DBUS_NAME="dbus-inverter"
-	DBUS_SMA_DIR="${ROOT_DIR}/data/etc/${DBUS_NAME}"
+	DBUS_DRV_DIR="${ROOT_DIR}/data/etc/${DBUS_NAME}"
 
 	mkdir -p ${ROOT_DIR}/var/log/${DBUS_NAME}
-	mkdir -p ${DBUS_SMA_DIR}
-	cp -R  InverterVenusDriver-master/dbus-sma/* ${ROOT_DIR}/data/etc/${DBUS_NAME}
+	mkdir -p ${DBUS_DRV_DIR}
+	cp -R  InverterVenusDriver-main/dbus-inverter/* ${ROOT_DIR}/data/etc/${DBUS_NAME}
 
   # replace inverter svg with gerneric grey inverter svg
-  cp InverterVenusDriver-master/assets/overview-inverter.svg ${ROOT_DIR}/opt/victronenergy/themes/ccgx/images
+  cp InverterVenusDriver-main/assets/overview-inverter.svg ${ROOT_DIR}/opt/victronenergy/themes/ccgx/images
 
 	chmod +x ${ROOT_DIR}/data/etc/${DBUS_NAME}/dbus-inverter.py
 	chmod +x ${ROOT_DIR}/data/etc/${DBUS_NAME}/service/run
 	chmod +x ${ROOT_DIR}/data/etc/${DBUS_NAME}//service/log/run
-	ln -s ${ROOT_DIR}/opt/victronenergy/vrmlogger/ext/ ${DBUS_SMA_DIR}/ext 
-	ln -s ${DBUS_SMA_DIR}/service ${ROOT_DIR}/service/${DBUS_NAME}
+	ln -s ${ROOT_DIR}/opt/victronenergy/vrmlogger/ext/ ${DBUS_DRV_DIR}/ext 
+	ln -s ${DBUS_DRV_DIR}/service ${ROOT_DIR}/service/${DBUS_NAME}
 
   # remove archive files
-  rm -rf InverterVenusDriver-master/
+  rm -rf InverterVenusDriver-main/
 
   echo
 	echo "To finish, reboot the Venus OS device"
