@@ -1,11 +1,21 @@
+
+# Shelly EM power meter with L1-L2 clamp for AC Loads in CCX display
 ShellyLoads:
     address: 1.2.3.4
     #password: PASSWORD
 
+# Shelly EM power meter with L1-L2 clamp for Grid in CCX display
 ShellyGrid:
     address: 1.2.3.4
     #password: PASSWORD
 
+# Shelly 1 PM which controls the grid relay
 ShellyGridCtl:
     address: 1.2.3.4
     #password: PASSWORD
+
+# Using a relay connected to a Shelly 1 PM
+# SOC percentage as reported by Victron BMV-712 Smart Shunt
+GridLogic:
+    start_soc: 15.0 # SOC for low battery to enable grid charge
+    end_soc: 25.0 # SOC for when to disable grid charge

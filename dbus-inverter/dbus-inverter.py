@@ -68,6 +68,9 @@ host_ac_loads = config['ShellyLoads']['address']
 host_grid = config['ShellyGrid']['address']
 host_grid_ctl = config['ShellyGridCtl']['address']
 
+grid_logic_start_soc = float(config['GridLogic']['start_soc'])
+grid_logic_end_soc = float(config['GridLogic']['end_soc'])
+
 keep_running = True
 
 # Have a mainloop, so we can send/receive asynchronous calls to and from dbus
@@ -183,7 +186,7 @@ def ac_grid_control(enabled) :
   ac_grid_ctrl.relay(0, turn=enabled)
 
 soc = 50.0 # set to sane value so we don't trigger relay on init
-
+grid_logic_str = "Grid Ctrl, Grid Start {0}% SOC, Grid End {1}% SOC".format(grid_logic_start_soc, grid_logic_end_soc)
 #----------
 def ac_grid_handler():
   logger.debug("start ac_grid thread")
@@ -261,32 +264,32 @@ def ac_grid_handler():
     if (grid_relay_on != None):
       # if the grid relay is on
       if (grid_relay_on) :
-        # zero export to grid
-        if (ac_in_total_power < 0 or (ac_in_total_power > 10 and ac_in_total_power < 100)) :
-          zero_export_countdown -= 1
-          logger.debug("!!!!!!!! Countdown: {0}".format(zero_export_countdown))
-        else :
-          zero_export_countdown = 5
+        if (not storm_warning) :
 
-        if (zero_export_countdown <= 0) :
-          # drop ac relay
-          ac_grid_control(False)
-          
-          logger.debug("!!!!!!!!!!!!!!!!!! GRID OFF!!!!!!!!!!!!!!")
+          # zero export to grid
+          if (ac_in_total_power < 0 or (ac_in_total_power > 10 and ac_in_total_power < 100)) :
+            zero_export_countdown -= 1
+            logger.debug("!!!!!!!! Countdown: {0}".format(zero_export_countdown))
+          else :
+            zero_export_countdown = 5
 
+          # if the soc has reached the grid logic charge end or countdown has expired
+          if (soc >= grid_logic_end_soc or zero_export_countdown <= 0) :
+            # drop ac relay
+            ac_grid_control(False)
 
+            logger.debug("!!!!!!!!!!!!!!!!!! GRID OFF!!!!!!!!!!!!!!")
 
-        logger.info("Grid AC: {0}V, L1 Power: {1}W, L2 Power: {2}W, Total Power: {3}W"\
-          .format(ac_in_l1_voltage, ac_in_l1_power, ac_in_l2_power, ac_in_total_power))
+        logger.info("Grid AC: {0}V, L1 Power: {1}W, L2 Power: {2}W, Total Power: {3}W, {4}"\
+          .format(ac_in_l1_voltage, ac_in_l1_power, ac_in_l2_power, ac_in_total_power, grid_logic_str))
 
       else : # grid relay is off
-
         # if SOC is low, turn on grid
-        if (soc <= 5.0 or storm_warning) :
+        if (soc <= grid_logic_start_soc or storm_warning) :
           ac_grid_control(True)
           logger.debug("!!!!!!!!!!!!!!!! GRID ON!!!!!!!!!!!!!")
 
-        logger.info("Grid AC: Available, Relay OFF")
+        logger.info("Grid AC: Available, Relay OFF, {0}".format(grid_logic_str))
     else :
       logger.info("Grid AC: OFFLINE")
 
